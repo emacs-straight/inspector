@@ -1,11 +1,11 @@
 ;;; inspector.el --- Tool for inspection of Emacs Lisp objects.  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2021 Mariano Montone
+;; Copyright (C) 2021-2022 Free Software Foundation, Inc.
 
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, emacs-lisp, development
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires: ((emacs "25"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -205,10 +205,10 @@ If LABEL has a value, then it is used as button label.
 Otherwise, button label is the printed representation of OBJECT."
   (insert-button (or (and label (inspector--princ-to-string label))
                      (inspector--print-truncated object))
-		 :type 'inspector-button
-		 'face (if inspector-use-font-lock-faces
-			   (inspector--face-for-object object)
-			 'inspector-value-face)
+                 :type 'inspector-button
+                 'face (if inspector-use-font-lock-faces
+                           (inspector--face-for-object object)
+                         'inspector-value-face)
                  'action (lambda (_btn)
                            (inspector-inspect object t))
                  'follow-link t))
@@ -246,7 +246,16 @@ slice in buffer."
 ;;--------- Object inspectors ----------------------------------
 
 (cl-defgeneric inspect-object (object)
-  "Render inspector buffer for OBJECT.")
+  "Render inspector buffer for OBJECT.
+
+Methods of this generic function are expected to specialize on the type of
+Emacs Lisp OBJECT being inspected, and write into the `current-buffer'.
+The `current-buffer' is presumed to be empty.
+An inspector buffer is expected to have a title, some properties and a body.
+See `inspector--insert-title', `inspector--insert-label'
+and `inspector--insert-value' for inserting title,and properties and its values.
+For linking to another object, `inspector--insert-inspect-button'
+is expected to be used.")
 
 (cl-defmethod inspect-object ((class (subclass eieio-default-superclass)))
   "Render inspector buffer for EIEIO CLASS."
@@ -331,7 +340,7 @@ slice in buffer."
       (newline)))
    ((functionp object)
     (if (subrp object)
-	(inspector--insert-title "builtin function")
+        (inspector--insert-title "builtin function")
       (inspector--insert-title "function"))
     (inspector--insert-value (inspector--princ-to-string object))
     (newline)
@@ -400,9 +409,9 @@ slice in buffer."
            (cl-incf j)
            (inspector--insert-inspect-button elem)
            (newline))
-	 ;; A [more] button is inserted or not depending on the boolean returned here:
+         ;; A [more] button is inserted or not depending on the boolean returned here:
          (< i (length cons))
-	 ))))
+         ))))
    (t ;; It is a cons cell
     (inspector--insert-title "cons cell")
     (inspector--insert-label "car")
@@ -435,9 +444,9 @@ slice in buffer."
                   (insert (format "%d: " k))
                   (inspector--insert-inspect-button (aref array k))
                   (newline))
-	 ;; Insert [more] button?:
-	 (< i length)
-	 )))))
+         ;; Insert [more] button?:
+         (< i length)
+         )))))
 
 (cl-defmethod inspect-object ((buffer buffer))
   "Render inspector buffer for Emacs BUFFER."
@@ -463,7 +472,7 @@ slice in buffer."
     (newline)
     (inspector--insert-label "readonly")
     (inspector--insert-inspect-button (with-current-buffer buffer
-					buffer-read-only))))
+                                        buffer-read-only))))
 
 (cl-defmethod inspect-object ((window window))
   "Render inspector buffer for Emacs WINDOW."
@@ -546,9 +555,9 @@ slice in buffer."
              (insert ": ")
              (inspector--insert-inspect-button (gethash key hash-table))
              (newline))
-	   ;; Insert [more] button?
-	   (< i (length keys))
-	   ))))))
+           ;; Insert [more] button?
+           (< i (length keys))
+           ))))))
 
 ;;--- Buffers ------------------------------
 
@@ -569,7 +578,7 @@ slice in buffer."
 
 ;;;###autoload
 (defun inspect-expression (exp)
-  "Evaluate and inspect EXP expression."
+  "Evaluate EXP and inspect its result."
   (interactive (list (read--expression "Eval and inspect: ")))
 
   (inspector-inspect (eval exp t)))
@@ -616,7 +625,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 
 ;;;###autoload
 (defun inspect-last-sexp ()
-  "Evaluate and inspect sexp before point."
+  "Evaluate sexp before point and inspect the result."
   (interactive)
   (let ((result (eval (eval-sexp-add-defvars (elisp--preceding-sexp)) lexical-binding)))
     (inspector-inspect result)))
@@ -624,7 +633,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 ;;-- Inspection from Emacs debugger
 
 ;;;###autoload
-(defun debugger-inspect-locals ()
+(defun inspect-debugger-locals ()
   "Inspect local variables of the frame at point in debugger backtrace."
   (interactive)
   (let* ((nframe (debugger-frame-number))
@@ -632,7 +641,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (inspector-inspect (inspector--alist-to-plist locals))))
 
 ;;;###autoload
-(defun debugger-inspect-current-frame ()
+(defun inspect-debugger-current-frame ()
   "Inspect current frame in debugger backtrace."
   (interactive)
   (let* ((nframe (debugger-frame-number))
@@ -640,7 +649,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (inspector-inspect frame)))
 
 ;;;###autoload
-(defun debugger-inspect-frame-and-locals ()
+(defun inspect-debugger-frame-and-locals ()
   "Inspect current frame and locals in debugger backtrace."
   (interactive)
   (let* ((nframe (debugger-frame-number))
@@ -652,7 +661,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 ;;--------- Inspector mode ---------------------------------
 
 ;; Press letter 'i' in debugger backtrace to inspect locals.
-(define-key debugger-mode-map (kbd "i") #'debugger-inspect-frame-and-locals)
+(define-key debugger-mode-map (kbd "i") #'inspect-debugger-frame-and-locals)
 
 (defvar inspector-mode-map
   (let ((map (make-keymap)))

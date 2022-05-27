@@ -2,12 +2,12 @@
 
 ;; https://www.gnu.org/software/emacs/manual/html_node/elisp/Programming-Types.html
 
-;; Copyright (C) 2021 Mariano Montone
+;; Copyright (C) 2021-2022 Free Software Foundation, Inc.
 
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, emacs-lisp, development
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires: ((emacs "25"))
 
 ;; This program is free software; you can redistribute it and/or modify
