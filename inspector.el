@@ -29,6 +29,7 @@
 
 (require 'eieio)
 (require 'debug)
+(require 'edebug)
 
 ;;---- Utils ----------
 
@@ -635,15 +636,32 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 ;;;###autoload
 (defun inspect-debugger-locals ()
   "Inspect local variables of the frame at point in debugger backtrace."
-  (interactive)
+  (interactive nil debugger-mode)
   (let* ((nframe (debugger-frame-number))
          (locals (backtrace--locals nframe)))
     (inspector-inspect (inspector--alist-to-plist locals))))
 
 ;;;###autoload
+(defun inspect-debugger-local (varname)
+  "Inspect local variable named VARNAME of frame at point in debugger backtrace."
+  (interactive
+   (list
+    (completing-read "Inspect local variable: "
+		     (with-current-buffer "*Backtrace*"
+		       ;; The addition of 0 to the return value of (debugger-frame-number) is necessary here. Why?? Ugly hack ...
+		       ;; On Emacs 29.0.50 with native comp at least ..
+		       (let ((n (+ (debugger-frame-number) 0)))
+			 (mapcar #'car (backtrace--locals n))))))
+   debugger-mode)
+  (with-current-buffer "*Backtrace*"
+    (let* ((n (debugger-frame-number))
+	   (locals (backtrace--locals n)))
+      (inspector-inspect (cdr (assoc (intern varname) locals))))))
+
+;;;###autoload
 (defun inspect-debugger-current-frame ()
   "Inspect current frame in debugger backtrace."
-  (interactive)
+  (interactive nil debugger-mode)
   (let* ((nframe (debugger-frame-number))
          (frame (backtrace-frame nframe)))
     (inspector-inspect frame)))
@@ -651,12 +669,20 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
 ;;;###autoload
 (defun inspect-debugger-frame-and-locals ()
   "Inspect current frame and locals in debugger backtrace."
-  (interactive)
+  (interactive nil debugger-mode)
   (let* ((nframe (debugger-frame-number))
          (locals (backtrace--locals nframe))
          (frame (backtrace-frame nframe)))
     (inspector-inspect (list :frame frame
                              :locals (inspector--alist-to-plist locals)))))
+
+;; ----- edebug-mode---------------------------------------
+
+;;;###autoload
+(defun inspect-edebug-expression (expr)
+  "Evaluate EXPR in edebug-mode, and inspect the result."
+  (interactive "xInspect edebug expression: " edebug-mode)
+  (inspector-inspect (edebug-eval expr)))
 
 ;;--------- Inspector mode ---------------------------------
 
