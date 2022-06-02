@@ -5,7 +5,7 @@
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, emacs-lisp, development
-;; Version: 0.2
+;; Version: 0.3
 ;; Package-Requires: ((emacs "25"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -676,6 +676,10 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (inspector-inspect (list :frame frame
                              :locals (inspector--alist-to-plist locals)))))
 
+;; Press letter 'i' in debugger backtrace to inspect locals.
+(when (not (keymap-lookup debugger-mode-map "i"))
+  (keymap-set debugger-mode-map "i" #'inspect-debugger-frame-and-locals))
+
 ;; ----- edebug-mode---------------------------------------
 
 ;;;###autoload
@@ -684,18 +688,18 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
   (interactive "xInspect edebug expression: " edebug-mode)
   (inspector-inspect (edebug-eval expr)))
 
-;;--------- Inspector mode ---------------------------------
+(when (not (keymap-lookup edebug-mode-map "C-c C-i"))
+  (keymap-set edebug-mode-map "C-c C-i" #'inspect-edebug-expression))
 
-;; Press letter 'i' in debugger backtrace to inspect locals.
-(define-key debugger-mode-map (kbd "i") #'inspect-debugger-frame-and-locals)
+;;--------- Inspector mode ---------------------------------
 
 (defvar inspector-mode-map
   (let ((map (make-keymap)))
-    (define-key map "q" #'inspector-quit)
-    (define-key map "l" #'inspector-pop)
-    (define-key map "e" #'eval-expression)
-    (define-key map "n" #'forward-button)
-    (define-key map "p" #'backward-button)
+    (keymap-set map "q" #'inspector-quit)
+    (keymap-set map "l" #'inspector-pop)
+    (keymap-set map "e" #'eval-expression)
+    (keymap-set map "n" #'forward-button)
+    (keymap-set map "p" #'backward-button)
     map))
 
 (easy-menu-define
