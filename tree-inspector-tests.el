@@ -183,11 +183,6 @@
   (if (= 1 integer) 1
     (* integer (tree-inspector-tests--factorial (1- integer)))))
 
-(ert-deftest tree-inspector-tests--inspect-compiled-function-test ()
-  (tree-inspector-tests--with-tree-inspector-contents
-   (buffer-string (byte-compile 'inspector-tests--factorial))
-   (should (cl-search "factorial" buffer-string))))
-
 (ert-deftest tree-inspector-tests--inspect-record-test ()
   (tree-inspector-tests--with-tree-inspector-contents
    (buffer-string (record 'foo 23 [bar baz] "rats"))
@@ -197,7 +192,8 @@
 
 (ert-deftest tree-inspector-tests--inspect-finalizer-test ()
   (tree-inspector-tests--with-tree-inspector-contents
-   (buffer-string (make-finalizer #'print))))
+   (buffer-string (make-finalizer #'print))
+   (should (cl-search "finalizer" buffer-string))))
 
 (ert-deftest tree-inspector-tests--overlays-test ()
   (tree-inspector-tests--with-tree-inspector-contents
@@ -214,12 +210,10 @@
 (ert-deftest tree-inspector-tests--inspect-class-test ()
   (tree-inspector-tests--with-tree-inspector-contents
    (buffer-string (make-instance 'inspector-tests--person))
-   (let ((buffer-string (buffer-string)))
-     (should (cl-search "name" buffer-string))
-     (should (cl-search "John" buffer-string))
-     (should (cl-search "age" buffer-string))
-     (should (cl-search "40" buffer-string)))))
-
+   (should (cl-search "name" buffer-string))
+   (should (cl-search "John" buffer-string))
+   (should (cl-search "age" buffer-string))
+   (should (cl-search "40" buffer-string))))
 
 (cl-defstruct inspector-tests--rectangle
   x y)
