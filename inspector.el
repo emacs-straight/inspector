@@ -5,7 +5,7 @@
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, lisp, development
-;; Version: 0.10
+;; Version: 0.16
 ;; Package-Requires: ((emacs "27.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -156,6 +156,32 @@
 (defcustom inspector-slice-size 100
   "Size of sequence slices in inspector."
   :type 'integer
+  :group 'inspector)
+
+(defcustom inspector-plist-test-function 'inspector--plistp
+  "Function used by the inspector to determine if a list is a property list."
+  :type 'symbol
+  :group 'inspector)
+
+(defcustom inspector-alist-test-function 'inspector--alistp
+  "Function used by the inspector to determine if a list is an association list."
+  :type 'symbol
+  :group 'inspector)
+
+(defcustom inspector-pp-max-width pp-max-width
+  "Max width to use when inspector pretty printing of objects.
+If nil, there's no max width.  If t, use the window width.
+Otherwise this should be a number.
+See `pp-max-width'"
+  :type '(choice (const :tag "none" nil)
+                 (const :tag "window width" t)
+                 number)
+  :group 'inspector)
+
+(defcustom inspector-pp-use-max-width pp-use-max-width
+  "If non-nil, `pp'-related functions will try to fold lines.
+The target width is given by the `pp-max-width' variable."
+  :type 'boolean
   :group 'inspector)
 
 (define-button-type 'inspector-button
@@ -411,8 +437,21 @@ is expected to be used.")
   "Inspect a CONS object."
   (cond
    ((and inspector-use-specialized-inspectors-for-lists
-         (inspector--plistp cons))
-    (inspector--insert-title "property list")
+         (funcall inspector-plist-test-function cons))
+    (insert (propertize "property list" 'face 'inspector-title-face))
+    (insert " ")
+    (insert-button "[as proper list]"
+                   'action (lambda (_btn)
+                             (let ((inspector-use-specialized-inspectors-for-lists nil))
+                               (setf buffer-read-only nil
+                                     (buffer-string) "")
+                               (inspector-inspect-object cons)
+                               (setq buffer-read-only t)
+                               (goto-char 0)))
+                   'follow-link t)
+    (newline)
+    (inspector--insert-horizontal-line)
+    (newline)
     (inspector--insert-label "length")
     (insert (inspector--princ-to-string (length cons)))
     (newline 2)
@@ -425,8 +464,21 @@ is expected to be used.")
           (inspector--insert-inspect-button value))
         (newline))))
    ((and inspector-use-specialized-inspectors-for-lists
-         (inspector--alistp cons))
-    (inspector--insert-title "association list")
+         (funcall inspector-alist-test-function cons))
+    (insert (propertize "association list" 'face 'inspector-title-face))
+    (insert " ")
+    (insert-button "[as proper list]"
+                   'action (lambda (_btn)
+                             (let ((inspector-use-specialized-inspectors-for-lists nil))
+                               (setf buffer-read-only nil
+                                     (buffer-string) "")
+                               (inspector-inspect-object cons)
+                               (setq buffer-read-only t)
+                               (goto-char 0)))
+                   'follow-link t)
+    (newline)
+    (inspector--insert-horizontal-line)
+    (newline)
     (inspector--insert-label "length")
     (insert (inspector--princ-to-string (length cons)))
     (newline 2)
@@ -448,7 +500,33 @@ is expected to be used.")
          ;; A [more] button is inserted or not depending on the boolean returned here:
          (< i (length cons))))))
    ((inspector--proper-list-p cons)
-    (inspector--insert-title "proper list")
+    (and inspector-use-specialized-inspectors-for-lists
+         (funcall inspector-plist-test-function cons))
+    (insert (propertize "proper list" 'face 'inspector-title-face))
+    (insert " ")
+    (when (funcall inspector-alist-test-function cons)
+      (insert-button "[as alist]"
+                     'action (lambda (_btn)
+                               (let ((inspector-use-specialized-inspectors-for-lists t))
+                                 (setf buffer-read-only nil
+                                       (buffer-string) "")
+                                 (inspector-inspect-object cons)
+                                 (setq buffer-read-only t)
+                                 (goto-char 0)))
+                     'follow-link t))
+    (when (funcall inspector-plist-test-function cons)
+      (insert-button "[as plist]"
+                     'action (lambda (_btn)
+                               (let ((inspector-use-specialized-inspectors-for-lists t))
+                                 (setf buffer-read-only nil
+                                       (buffer-string) "")
+                                 (inspector-inspect-object cons)
+                                 (setq buffer-read-only t)
+                                 (goto-char 0)))
+                     'follow-link t))
+    (newline)
+    (inspector--insert-horizontal-line)
+    (newline)
     (inspector--insert-label "length")
     (insert (inspector--princ-to-string (length cons)))
     (newline 2)
@@ -684,6 +762,19 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
   (let ((result (eval (eval-sexp-add-defvars (elisp--preceding-sexp)) lexical-binding)))
     (inspector-inspect result)))
 
+;;;###autoload
+(defun inspector-pprint-inspected-object ()
+  "Pretty print the object being inspected."
+  (interactive)
+  (let ((object (buffer-local-value '* (current-buffer))))
+    (with-current-buffer-window "*inspector pprint*"
+        nil nil
+      (local-set-key "q" #'kill-this-buffer)
+      (let ((pp-use-max-width inspector-pp-use-max-width)
+            (pp-max-width inspector-pp-max-width))
+        (ignore pp-use-max-width pp-max-width)
+        (pp object)))))
+
 ;;-- Inspection from Emacs debugger
 
 ;;;###autoload
@@ -713,7 +804,23 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
       (inspector-inspect (cdr (assoc (intern varname) locals))))))
 
 ;;;###autoload
-(defun inspector-inspect-backtrace-frame ()
+(defun inspector-inspect-debugger-return-value ()
+  "Inspect the current return value in the debugger."
+  (interactive)
+  ;; Find the backtrace-frame for the function 'debug.
+  ;; When there's an 'exit arg, assume that is the return-value and inspect it.
+  (let ((debug-frame (cl-find-if (lambda (frame)
+                                   (eq (backtrace-frame-fun frame) 'debug))
+                                 (backtrace-get-frames))))
+    (when (not debug-frame)
+      (user-error "Can't read debugger status"))
+    (let ((debug-exit (cl-getf (backtrace-frame-args debug-frame) 'exit :_not_found_)))
+      (when (eq debug-exit :_not_found_)
+        (user-error "Debugger is not in return-value state"))
+      (inspector-inspect debug-exit))))
+
+;;;###autoload
+(defun inspector-inspect-stack-frame ()
   "Inspect current frame and locals in debugger backtrace."
   (interactive)
   (when (not (backtrace-get-index))
@@ -723,7 +830,15 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (inspector-inspect (nth nframe frames))))
 
 ;; Press letter 'i' in debugger backtrace to inspect locals.
-(define-key debugger-mode-map "i" #'inspector-inspect-backtrace-frame)
+(define-key debugger-mode-map "i" #'inspector-inspect-stack-frame)
+
+;;;###autoload
+(defun inspector-inspect-in-stack-frame (exp)
+  "Inspect an expression, in an environment like that outside the debugger.
+The environment used is the one when entering the activation frame at point."
+  (interactive
+   (list (read--expression "Inspect in stack frame: ")))
+  (inspector-inspect (debugger-eval-expression exp)))
 
 ;; ----- edebug-mode---------------------------------------
 
@@ -745,6 +860,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (define-key map "e" #'eval-expression)
     (define-key map "n" #'forward-button)
     (define-key map "p" #'backward-button)
+    (define-key map "P" #'inspector-pprint-inspected-object)
     map))
 
 (easy-menu-define
@@ -753,6 +869,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
   '("Inspector"
     ["Previous" inspector-pop :help "Inspect previous object"]
     ["Evaluate" eval-expression :help "Evaluate expression with current inspected object as context"]
+    ["Pretty print inspected object" inspector-pprint-inspected-object]
     ["Exit" inspector-quit :help "Quit the Emacs Lisp inspector"]))
 
 (defvar inspector-tool-bar-map
