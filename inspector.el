@@ -5,7 +5,7 @@
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, lisp, development
-;; Version: 0.16
+;; Version: 0.19
 ;; Package-Requires: ((emacs "27.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -53,6 +53,7 @@
 (require 'debug)
 (require 'edebug)
 (require 'backtrace)
+(require 'pp)
 
 ;;---- Utils ----------
 
@@ -168,7 +169,10 @@
   :type 'symbol
   :group 'inspector)
 
-(defcustom inspector-pp-max-width pp-max-width
+(defcustom inspector-pp-max-width
+  (if (boundp 'pp-max-width)
+      (symbol-value 'pp-max-width)
+    "window width")
   "Max width to use when inspector pretty printing of objects.
 If nil, there's no max width.  If t, use the window width.
 Otherwise this should be a number.
@@ -178,7 +182,10 @@ See `pp-max-width'"
                  number)
   :group 'inspector)
 
-(defcustom inspector-pp-use-max-width pp-use-max-width
+(defcustom inspector-pp-use-max-width
+  (if (boundp 'pp-use-max-width)
+      (symbol-value 'pp-use-max-width)
+    nil)
   "If non-nil, `pp'-related functions will try to fold lines.
 The target width is given by the `pp-max-width' variable."
   :type 'boolean
@@ -760,6 +767,35 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
   "Evaluate sexp before point and inspect the result."
   (interactive)
   (let ((result (eval (eval-sexp-add-defvars (elisp--preceding-sexp)) lexical-binding)))
+    (inspector-inspect result)))
+
+(defun inspector--elisp-defun-at-point ()
+  "Return the name of the function at point."
+  (save-excursion
+    (beginning-of-defun)
+    (let ((sexp (read (current-buffer))))
+      (when (eq (car sexp) 'defun)
+        (cadr sexp)))))
+;;;###autoload
+(defun inspector-inspect-defun ()
+  "Evaluate the top s-exp - simmilar the effect
+ of M-x or eval-defun and inspect the result"
+  (interactive)
+  (let* ((s-exp (read
+                 (save-excursion
+                   (beginning-of-defun)
+                   (buffer-substring-no-properties (point) (point-max)))))
+         (result (eval s-exp lexical-binding)))
+    (inspector-inspect result)))
+
+;;;###autoload
+(defun inspector-inspect-region (start end)
+  "Evaluate the region from START TO END and inspect the result."
+  (interactive "r")
+  (let* ((region (read
+                  (save-excursion
+                    (buffer-substring-no-properties start end))))
+         (result (eval region lexical-binding)))
     (inspector-inspect result)))
 
 ;;;###autoload
