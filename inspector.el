@@ -5,7 +5,7 @@
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, lisp, development
-;; Version: 0.19
+;; Version: 0.20
 ;; Package-Requires: ((emacs "27.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -806,10 +806,13 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
     (with-current-buffer-window "*inspector pprint*"
         nil nil
       (local-set-key "q" #'kill-this-buffer)
+
       (let ((pp-use-max-width inspector-pp-use-max-width)
             (pp-max-width inspector-pp-max-width))
         (ignore pp-use-max-width pp-max-width)
-        (pp object)))))
+        (pp object)
+        ;; Jump to this buffer
+        (switch-to-buffer-other-window "*inspector pprint*")))))
 
 ;;-- Inspection from Emacs debugger
 
@@ -923,6 +926,7 @@ The environment used is the one when entering the activation frame at point."
 (define-derived-mode inspector-mode fundamental-mode "Inspector"
   "Major mode for the Emacs Lisp Inspector."
   (setq-local tool-bar-map inspector-tool-bar-map))
+
 
 (provide 'inspector)
 
