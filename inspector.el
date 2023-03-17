@@ -362,7 +362,20 @@ is expected to be used.")
 
 (cl-defmethod inspector-inspect-object ((symbol symbol))
   "Render inspector buffer for SYMBOL."
-  (inspector--insert-title "symbol")
+  (insert (propertize "symbol" 'face 'inspector-title-face))
+  (insert "  ")
+  (insert-button "[find definitions]"
+                 'action (lambda (_btn)
+                           (xref-find-definitions (symbol-name symbol)))
+                 'follow-link t)
+  (insert " ")
+  (insert-button "[describe]"
+                 'action (lambda (_btn)
+                           (describe-symbol symbol))
+                 'follow-link t)
+  (newline)
+  (inspector--insert-horizontal-line)
+  (newline)
   (inspector--insert-label "name")
   (inspector--insert-value (symbol-name symbol))
   (newline)
@@ -584,7 +597,7 @@ is expected to be used.")
 ;; NOTE: this is code extracted from https://git.savannah.gnu.org/cgit/emacs/org-mode.git/tree/lisp/org-fold-core.el#n1450
 (defun inspector--object-intervals (string)
   (if (fboundp 'object-intervals)
-                   (object-intervals string)
+      (object-intervals string)
     ;; Backward compatibility with Emacs <28.
     ;; FIXME: Is there any better way to do it?
     ;; Yes, it is a hack.
@@ -608,7 +621,8 @@ is expected to be used.")
 (cl-defmethod inspector-inspect-object ((string string))
   "Render inspector buffer for STRING."
   (inspector--insert-title "string")
-  (prin1 (substring-no-properties string) (current-buffer))
+  (insert (propertize (cl-prin1-to-string  (substring-no-properties string))
+                      'face 'font-lock-string-face))
   (let ((text-properties (inspector--object-intervals string)))
     (when text-properties
       (newline 2)
@@ -763,6 +777,7 @@ is expected to be used.")
                         (make-local-variable '*))
                       buf))))
     (with-current-buffer buffer
+      (add-hook 'xref-backend-functions 'elisp--xref-backend 0 'local)
       (setq revert-buffer-function #'inspector--revert-buffer)
       (setq buffer-read-only nil)
       (erase-buffer))
@@ -876,6 +891,7 @@ When PRESERVE-HISTORY is T, inspector history is not cleared."
   (let ((object (buffer-local-value '* (current-buffer))))
     (with-current-buffer-window "*inspector pprint*"
         nil nil
+      (emacs-lisp-mode)
       (local-set-key "q" #'kill-this-buffer)
 
       (let ((pp-use-max-width inspector-pp-use-max-width)
