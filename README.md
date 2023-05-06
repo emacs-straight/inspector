@@ -8,6 +8,8 @@ Inspector tool for Emacs Lisp objects.
 
 Similar to inspectors available for Smalltalk and Common Lisp, but for Emacs Lisp.
 
+Also see: [Emacs Tree Inspector](https://github.com/mmontone/emacs-tree-inspector "Emacs Tree Inspector") tool.
+
 ![emacs-inspector.png](emacs-inspector.png "Emacs Inspector")
 
 ## Installation
@@ -22,16 +24,6 @@ This package is available from ELPA.
 
 * `M-x inspector-inspect-expression` to evaluate an elisp expression and inspect the result.
 * `M-x inspector-inspect-last-sexp` to evaluate last sexp in current buffer and inspect the result.
-
- Or add the following to your config:
-
-```lisp
-(define-key global-map [remap eval-last-sexp] #'inspector-eval-last-sexp)
-(define-key global-map [remap eval-expression] #'inspector-eval-expression)
-```
-
-and then use `C-u C-x C-e` and `C-u M-:` as alternatives to
-`eval-last-sexp` and `eval-expression`.
 
 ### Inside the inspector
 
@@ -49,19 +41,34 @@ When on an Emacs debugging backtrace, press letter `i` to inspect the pointed fr
 
 When on edebug-mode, use `C-c C-i` for inspecting expressions in the debugger.
 
-# Tree Inspector
+### Setup evaluation commands using prefix arguments
 
-An inspector tool for Emacs Lisp objects that uses a tree view.
+Instead of bothering setting up different key bindings for elisp evaluation and inspection, it can be handy to have both in the same command, and use prefix arguments to differenciate, like this:
 
-![tree-inspector.png](tree-inspector.png "Tree Inspector")
+```emacs-lisp
+(defun eval-or-inspect-expression (arg)
+  "Like `eval-expression', but also inspect when called with prefix ARG."
+  (interactive "P")
+  (pcase arg
+    ('(4) (let ((current-prefix-arg nil))
+	    (call-interactively #'inspector-inspect-expression)))
+    (_ (call-interactively #'eval-expression))))
+	
+(defun eval-or-inspect-last-sexp (arg)
+  "Like `eval-last-sexp', but also inspect when called with prefix ARG."
+  (interactive "P")
+  (pcase arg
+    ('(4) (inspector-inspect-last-sexp))
+    (_ (call-interactively #'eval-last-sexp))))
+```
 
-Works together with the "normal" inspector when it is loaded; when an object label is clicked on the tree, an inspector is opened on that object.
+Setup key bindings:
 
-## Install and usage
-
-`(require 'tree-inspector)` to load.
-
-Then start the inspector with either `M-x tree-inspector-inspect-expression` or `M-x tree-inspector-inspect-last-sexp`.
+```emacs-lisp
+(define-key global-map [remap eval-last-sexp] #'eval-or-inspect-last-sexp)
+(define-key global-map [remap eval-expression] #'eval-or-inspect-expression)
+```
+and then use `C-u C-x C-e` and `C-u M-:` as alternatives to `eval-last-sexp` and `eval-expression`.
 
 ### For `evil/vim` user
 
@@ -81,4 +88,3 @@ Then start the inspector with either `M-x tree-inspector-inspect-expression` or 
 )
 (add-hook 'inspector-mode-hook #'inspector--set-evil-key-binding)
 ```
-
