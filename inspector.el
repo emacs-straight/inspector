@@ -5,7 +5,7 @@
 ;; Author: Mariano Montone <marianomontone@gmail.com>
 ;; URL: https://github.com/mmontone/emacs-inspector
 ;; Keywords: debugging, tool, lisp, development
-;; Version: 0.34
+;; Version: 0.35
 ;; Package-Requires: ((emacs "27.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,8 @@
 (defun inspector--princ-to-string (object)
   "Print OBJECT to string using `princ'."
   (with-output-to-string
-    (princ object)))
+    (let ((print-circle t))
+      (princ object))))
 
 (defun inspector--plistp (list)
   "Return T if LIST is a property list."
